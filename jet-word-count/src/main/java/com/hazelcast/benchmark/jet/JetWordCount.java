@@ -29,7 +29,6 @@ public class JetWordCount {
         appConfig.setChunkSize(4000);
         appConfig.setMaxProcessingThreads(
                 Runtime.getRuntime().availableProcessors());
-        appConfig.setLocalizationDirectory("/tmp/wordcount");
 
         JetConfig config = new JetConfig();
         config.addJetApplicationConfig(appConfig);

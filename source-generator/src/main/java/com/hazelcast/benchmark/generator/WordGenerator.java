@@ -1,7 +1,6 @@
 package com.hazelcast.benchmark.generator;
 
-import org.apache.commons.lang.RandomStringUtils;
-
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.Random;
@@ -11,21 +10,27 @@ import java.util.Random;
  */
 public class WordGenerator {
 
-    private static final Random random = new Random();
-
     public static void writeToFile(OutputStreamWriter stream, int distinctWords, int numWords) throws IOException {
-        String [] words = new String[distinctWords];
-        for (int i = 0; i < distinctWords; i++) {
-            words[i] = RandomStringUtils.randomAlphabetic(random.nextInt(10) + 2);
-        }
-
         for (int i = 0; i < numWords; i++) {
-            stream.write(words[random.nextInt(distinctWords)]);
+            stream.write(i % distinctWords + "");
             if (i % 20 == 0) {
                 stream.write("\n");
             } else {
                 stream.write(" ");
             }
         }
+    }
+
+    public static void main(String[] args) throws IOException {
+        if (args.length == 0) {
+            System.out.println("Usage: word-generator <path> <num distinct> <num words>");
+            return;
+        }
+
+        DataOutputStream hdfsFile = Hdfs.getHdfsFile(args[0]);
+
+        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), Integer.parseInt(args[1]), Integer.parseInt(args[2]));
+        hdfsFile.flush();
+        hdfsFile.close();
     }
 }
