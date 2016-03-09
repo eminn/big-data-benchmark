@@ -25,6 +25,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
 
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 /**
  * Implements the streaming "WordCount" program that computes a simple word occurrences
@@ -51,27 +52,25 @@ public class FlinkWordCount {
 
     public static void main(String[] args) throws Exception {
 
+        Pattern space = Pattern.compile(" ");
         if (!parseParameters(args)) {
             return;
         }
 
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
         // get input data
         DataStream<String> text = getTextDataStream(env);
 
         DataStream<Tuple2<String, Integer>> counts =
                 // normalize and split each line
-                text.map(line -> line.split("\\W+"))
-                        // convert splitted line in pairs (2-tuples) containing: (word,1)
-                        .flatMap(new FlatMapFunction<String[], Tuple2<String, Integer>>() {
+                text.flatMap(new FlatMapFunction<String, Tuple2<String, Integer>>() {
                             @Override
-                            public void flatMap(String[] tokens, Collector<Tuple2<String, Integer>> out) throws Exception {
+                            public void flatMap(String line, Collector<Tuple2<String, Integer>> out) throws Exception {
                                 // emit the pairs with non-zero-length words
-                                Arrays.stream(tokens)
-                                        .filter(t -> t.length() > 0)
-                                        .forEach(t -> out.collect(new Tuple2<>(t, 1)));
+                                for (String s : space.split(line)) {
+                                    out.collect(new Tuple2<>(s, 1));
+                                }
                             }
                         })
                         // group by the tuple field "0" and sum up tuple field "1"

@@ -3,15 +3,14 @@ package com.hazelcast.benchmark.generator;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.util.Random;
 
 /**
  * Created by can on 22/02/2016.
  */
 public class WordGenerator {
 
-    public static void writeToFile(OutputStreamWriter stream, int distinctWords, int numWords) throws IOException {
-        for (int i = 0; i < numWords; i++) {
+    public static void writeToFile(OutputStreamWriter stream, long distinctWords, long numWords) throws IOException {
+        for (long i = 0; i < numWords; i++) {
             stream.write(i % distinctWords + "");
             if (i % 20 == 0) {
                 stream.write("\n");
@@ -29,7 +28,7 @@ public class WordGenerator {
 
         DataOutputStream hdfsFile = Hdfs.getHdfsFile(args[0]);
 
-        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), Integer.parseInt(args[1]), Integer.parseInt(args[2]));
+        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), Long.parseLong(args[1]), Long.parseLong(args[2]));
         hdfsFile.flush();
         hdfsFile.close();
     }
