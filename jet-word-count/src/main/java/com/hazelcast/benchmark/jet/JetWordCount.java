@@ -12,16 +12,21 @@ import com.hazelcast.jet.spi.config.JetApplicationConfig;
 import com.hazelcast.jet.spi.config.JetConfig;
 import com.hazelcast.jet.spi.container.ContainerDescriptor;
 import com.hazelcast.jet.spi.dag.DAG;
-import com.hazelcast.jet.spi.dag.Edge;
 import com.hazelcast.jet.spi.dag.Vertex;
 import com.hazelcast.jet.spi.processor.ProcessorDescriptor;
 import com.hazelcast.jet.spi.strategy.HashingStrategy;
 import com.hazelcast.jet.spi.strategy.ProcessingStrategy;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.FileOutputCommitter;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobContext;
+import org.apache.hadoop.mapred.TaskAttemptID;
+import org.apache.hadoop.mapred.TaskID;
 import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.mapreduce.TaskType;
 
-import java.nio.file.Files;
+import java.util.UUID;
 import java.util.concurrent.Future;
 
 public class JetWordCount {
@@ -42,10 +47,25 @@ public class JetWordCount {
         Vertex vertex2 = createVertex("wordCounter", WordCounterProcessor.Factory.class);
 
         JobConf conf = new JobConf();
+
+        // TODO
+        int taskNumber = 1;
+        TaskAttemptID taskAttemptId = TaskAttemptID.forName("attempt__0000_r_"
+                + String.format("%" + (6 - Integer.toString(taskNumber + 1).length()) + "s", " ").replace(" ", "0")
+                + Integer.toString(taskNumber + 1)
+                + "_0");
+
+        conf.set(JobContext.TASK_ATTEMPT_ID, taskAttemptId.toString());
         conf.setInputFormat(TextInputFormat.class);
+        conf.setOutputFormat(TextOutputFormat.class);
+        conf.setOutputCommitter(FileOutputCommitter.class);
+
+
         TextInputFormat.addInputPath(conf, new Path(args[0]));
-        vertex1.addSourceTap(new HdfsSourceTap(conf, "hdfs"));
-        vertex2.addSinkFile(args[1]);
+        TextOutputFormat.setOutputPath(conf, new Path(args[1]));
+        vertex1.addSourceTap(new HdfsSourceTap("hdfs", conf));
+        vertex2.addSinkFile("output.txt");
+//        vertex2.addSinkTap(new HdfsSinkTap("hdfs", conf));
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount");
         try {
@@ -77,6 +97,7 @@ public class JetWordCount {
                             .build()
             );
             long t = System.currentTimeMillis();
+            System.out.println("Executing app");
             executeApplication(dag, application).get();
             System.out.println("Time=" + (System.currentTimeMillis() - t));
         } finally {

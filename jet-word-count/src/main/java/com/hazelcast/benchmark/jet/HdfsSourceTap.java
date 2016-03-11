@@ -42,7 +42,7 @@ public class HdfsSourceTap extends SourceTap {
     private JobConf configuration;
     private String name;
 
-    public HdfsSourceTap(JobConf configuration, String name) {
+    public HdfsSourceTap(String name, JobConf configuration) {
         this.configuration = configuration;
         this.name = name;
 
