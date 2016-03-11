@@ -17,6 +17,9 @@ import com.hazelcast.jet.spi.dag.Vertex;
 import com.hazelcast.jet.spi.processor.ProcessorDescriptor;
 import com.hazelcast.jet.spi.strategy.HashingStrategy;
 import com.hazelcast.jet.spi.strategy.ProcessingStrategy;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.nio.file.Files;
 import java.util.concurrent.Future;
@@ -38,7 +41,10 @@ public class JetWordCount {
         Vertex vertex1 = createVertex("wordGenerator", WordGeneratorProcessor.Factory.class);
         Vertex vertex2 = createVertex("wordCounter", WordCounterProcessor.Factory.class);
 
-        vertex1.addSourceFile(args[0]);
+        JobConf conf = new JobConf();
+        conf.setInputFormat(TextInputFormat.class);
+        TextInputFormat.addInputPath(conf, new Path(args[0]));
+        vertex1.addSourceTap(new HdfsSourceTap(conf, "hdfs"));
         vertex2.addSinkFile(args[1]);
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount");

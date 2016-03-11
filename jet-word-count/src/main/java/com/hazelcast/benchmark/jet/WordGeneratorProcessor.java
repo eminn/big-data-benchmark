@@ -24,13 +24,15 @@ import com.hazelcast.jet.api.processor.ContainerProcessorFactory;
 import com.hazelcast.jet.spi.dag.Vertex;
 import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.processor.ContainerProcessor;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
 
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
-public class WordGeneratorProcessor implements ContainerProcessor<Object, String> {
+public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWritable, Text>, String> {
     private int idx;
-    private Iterator<Object> iterator;
+    private Iterator<Tuple<LongWritable, Text>> iterator;
     private StringTokenizer stringTokenizer;
 
     private boolean processStringTokenizer(ConsumerOutputStream<String> outputStream,
@@ -61,7 +63,7 @@ public class WordGeneratorProcessor implements ContainerProcessor<Object, String
     }
 
     @Override
-    public boolean process(ProducerInputStream<Object> inputStream,
+    public boolean process(ProducerInputStream<Tuple<LongWritable, Text>> inputStream,
                            ConsumerOutputStream<String> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
@@ -75,22 +77,9 @@ public class WordGeneratorProcessor implements ContainerProcessor<Object, String
         }
 
         while (iterator.hasNext()) {
-            Object object = iterator.next();
-            String text;
+            Tuple<LongWritable, Text> next = iterator.next();
 
-            if (object instanceof String) {
-                text = (String) object;
-            } else if (object instanceof Tuple) {
-                text = (String) ((Tuple) object).getValue(0);
-            } else {
-                if (object == null) {
-                    throw new IllegalStateException("Null object");
-                } else {
-                    throw new IllegalStateException("Wrong object: " + object);
-                }
-            }
-
-            this.stringTokenizer = new StringTokenizer(text);
+            this.stringTokenizer = new StringTokenizer(next.getValue(0).toString());
 
             if (!processStringTokenizer(outputStream, processorContext)) {
                 return false;
@@ -118,9 +107,9 @@ public class WordGeneratorProcessor implements ContainerProcessor<Object, String
 
     }
 
-    public static class Factory implements ContainerProcessorFactory<Object, String> {
+    public static class Factory implements ContainerProcessorFactory<Tuple<LongWritable, Text>, String> {
         @Override
-        public ContainerProcessor<Object, String> getProcessor(Vertex vertex) {
+        public ContainerProcessor<Tuple<LongWritable, Text>, String> getProcessor(Vertex vertex) {
             return new WordGeneratorProcessor();
         }
     }
