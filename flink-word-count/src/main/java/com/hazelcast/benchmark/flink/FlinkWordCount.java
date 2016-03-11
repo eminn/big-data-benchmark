@@ -78,7 +78,7 @@ public class FlinkWordCount {
                         .sum(1);
 
         // emit result
-        counts.writeAsCsv(outputPath);
+        counts.writeAsCsv(outputPath + "_" + System.currentTimeMillis());
         // execute program
         long t =  System.currentTimeMillis();
         env.execute("Streaming WordCount Example");

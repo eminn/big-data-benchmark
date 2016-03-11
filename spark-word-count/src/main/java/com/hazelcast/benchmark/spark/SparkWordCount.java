@@ -32,7 +32,8 @@ public class SparkWordCount {
 
         System.out.println("Starting task");
         long t = System.currentTimeMillis();
-        counts.saveAsTextFile(args[1]);
+        counts.saveAsTextFile(args[1] + "_" + t);
         System.out.println("Time=" + (System.currentTimeMillis() - t));
+
     }
 }
