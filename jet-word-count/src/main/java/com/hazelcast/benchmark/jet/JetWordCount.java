@@ -1,5 +1,6 @@
 package com.hazelcast.benchmark.jet;
 
+import com.hazelcast.config.JoinConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.PartitioningStrategy;
@@ -21,12 +22,9 @@ import org.apache.hadoop.mapred.FileOutputCommitter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobContext;
 import org.apache.hadoop.mapred.TaskAttemptID;
-import org.apache.hadoop.mapred.TaskID;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapred.TextOutputFormat;
-import org.apache.hadoop.mapreduce.TaskType;
 
-import java.util.UUID;
 import java.util.concurrent.Future;
 
 public class JetWordCount {
@@ -41,7 +39,26 @@ public class JetWordCount {
         JetConfig config = new JetConfig();
         config.addJetApplicationConfig(appConfig);
 
+        JoinConfig join = config.getNetworkConfig().getJoin();
+        join.getMulticastConfig().setEnabled(false);
+        join.getTcpIpConfig().setEnabled(true);
+        join.getTcpIpConfig().addMember("server1");
+        join.getTcpIpConfig().addMember("server2");
+        join.getTcpIpConfig().addMember("server3");
+        join.getTcpIpConfig().addMember("server4");
+        join.getTcpIpConfig().addMember("server5");
+        join.getTcpIpConfig().addMember("server6");
+        join.getTcpIpConfig().addMember("server7");
+        join.getTcpIpConfig().addMember("server8");
+        join.getTcpIpConfig().addMember("server9");
         HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+
+        if (args.length == 0) {
+            return;
+        }
+        
+        System.out.println("Press any key to start");
+        System.in.read();
 
         Vertex vertex1 = createVertex("wordGenerator", WordGeneratorProcessor.Factory.class);
         Vertex vertex2 = createVertex("wordCounter", WordCounterProcessor.Factory.class);
