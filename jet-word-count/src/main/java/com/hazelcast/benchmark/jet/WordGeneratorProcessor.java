@@ -21,6 +21,7 @@ import com.hazelcast.jet.api.container.ProcessorContext;
 import com.hazelcast.jet.api.data.io.ConsumerOutputStream;
 import com.hazelcast.jet.api.data.io.ProducerInputStream;
 import com.hazelcast.jet.api.processor.ContainerProcessorFactory;
+import com.hazelcast.jet.impl.data.tuple.Tuple2;
 import com.hazelcast.jet.spi.dag.Vertex;
 import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.processor.ContainerProcessor;
@@ -30,17 +31,17 @@ import org.apache.hadoop.io.Text;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
-public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWritable, Text>, String> {
+public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWritable, Text>, Tuple<String, Integer>> {
     private int idx;
     private Iterator<Tuple<LongWritable, Text>> iterator;
     private StringTokenizer stringTokenizer;
 
-    private boolean processStringTokenizer(ConsumerOutputStream<String> outputStream,
+    private boolean processStringTokenizer(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                                            ProcessorContext processorContext) throws Exception {
         while (this.stringTokenizer.hasMoreElements()) {
             String word = this.stringTokenizer.nextToken();
 
-            outputStream.consume(word);
+            outputStream.consume(new Tuple2<>(word, 1));
 
             this.idx++;
 
@@ -64,7 +65,7 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
 
     @Override
     public boolean process(ProducerInputStream<Tuple<LongWritable, Text>> inputStream,
-                           ConsumerOutputStream<String> outputStream,
+                           ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
         if (this.stringTokenizer != null) {
@@ -91,7 +92,7 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
     }
 
     @Override
-    public boolean finalizeProcessor(ConsumerOutputStream<String> outputStream,
+    public boolean finalizeProcessor(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                                      ProcessorContext processorContext) throws Exception {
         if (this.stringTokenizer != null) {
             processStringTokenizer(outputStream, processorContext);
@@ -107,9 +108,9 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
 
     }
 
-    public static class Factory implements ContainerProcessorFactory<Tuple<LongWritable, Text>, String> {
+    public static class Factory implements ContainerProcessorFactory<Tuple<LongWritable, Text>, Tuple<String,Integer>> {
         @Override
-        public ContainerProcessor<Tuple<LongWritable, Text>, String> getProcessor(Vertex vertex) {
+        public ContainerProcessor<Tuple<LongWritable, Text>, Tuple<String,Integer>> getProcessor(Vertex vertex) {
             return new WordGeneratorProcessor();
         }
     }

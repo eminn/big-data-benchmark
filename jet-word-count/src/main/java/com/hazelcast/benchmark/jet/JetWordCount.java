@@ -14,22 +14,20 @@ import com.hazelcast.jet.spi.config.JetConfig;
 import com.hazelcast.jet.spi.container.ContainerDescriptor;
 import com.hazelcast.jet.spi.dag.DAG;
 import com.hazelcast.jet.spi.dag.Vertex;
+import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.processor.ProcessorDescriptor;
 import com.hazelcast.jet.spi.strategy.HashingStrategy;
 import com.hazelcast.jet.spi.strategy.ProcessingStrategy;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileOutputCommitter;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.JobContext;
 import org.apache.hadoop.mapred.TaskAttemptID;
-import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapred.TextOutputFormat;
 
 import java.util.concurrent.Future;
 
 public class JetWordCount {
 
-    public static void main(String [] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         JetApplicationConfig appConfig = new JetApplicationConfig("wordCount");
         appConfig.setJetSecondsToAwait(100000);
         appConfig.setChunkSize(4000);
@@ -56,12 +54,13 @@ public class JetWordCount {
         if (args.length == 0) {
             return;
         }
-        
+
         System.out.println("Press any key to start");
         System.in.read();
 
-        Vertex vertex1 = createVertex("wordGenerator", WordGeneratorProcessor.Factory.class);
-        Vertex vertex2 = createVertex("wordCounter", WordCounterProcessor.Factory.class);
+        Vertex generator = createVertex("wordGenerator", WordGeneratorProcessor.Factory.class);
+        Vertex counter = createVertex("wordCounter", WordCombinerProcessor.Factory.class);
+        Vertex combiner = createVertex("wordCombiner", WordCombinerProcessor.Factory.class);
 
         JobConf conf = new JobConf();
 
@@ -72,51 +71,56 @@ public class JetWordCount {
                 + Integer.toString(taskNumber + 1)
                 + "_0");
 
-        conf.set(JobContext.TASK_ATTEMPT_ID, taskAttemptId.toString());
-        conf.setInputFormat(TextInputFormat.class);
-        conf.setOutputFormat(TextOutputFormat.class);
-        conf.setOutputCommitter(FileOutputCommitter.class);
-
-
-        TextInputFormat.addInputPath(conf, new Path(args[0]));
         TextOutputFormat.setOutputPath(conf, new Path(args[1]));
-        vertex1.addSourceTap(new HdfsSourceTap("hdfs", conf));
-        vertex2.addSinkFile("output.txt");
-//        vertex2.addSinkTap(new HdfsSinkTap("hdfs", conf));
+        generator.addSourceTap(new HdfsSourceTap("hdfs", args[0]));
+        combiner.addSinkFile("output.txt");
+//        counter.addSinkTap(new HdfsSinkTap("hdfs", conf));
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount");
         try {
             DAG dag = new DAGImpl("wordCount");
-            dag.addVertex(vertex1);
-            dag.addVertex(vertex2);
+            dag.addVertex(generator);
+            dag.addVertex(counter);
+            dag.addVertex(combiner);
+            HashingStrategy<Tuple<String,Integer>, String> hashingStrategy =
+                    new HashingStrategy<Tuple<String, Integer>, String>() {
+                        @Override
+                        public int hash(Tuple<String, Integer> object, String partitionKey, ContainerDescriptor containerDescriptor) {
+                            return partitionKey.hashCode();
+                        }
+                    };
+            PartitioningStrategy<Tuple<String, Integer>> partitioningStrategy =
+                    new PartitioningStrategy<Tuple<String, Integer>>() {
+                        @Override
+                        public Object getPartitionKey(Tuple<String,Integer> key) {
+                            return key.getKey(0);
+                        }
+                    };
             dag.addEdge(
                     new EdgeImpl.EdgeBuilder(
                             "edge",
-                            vertex1,
-                            vertex2
-                    )
+                            generator,
+                            counter)
                             .processingStrategy(ProcessingStrategy.PARTITIONING)
-                            .hashingStrategy(new HashingStrategy<String, String>() {
-                                                 @Override
-                                                 public int hash(String object,
-                                                                 String partitionKey,
-                                                                 ContainerDescriptor containerDescriptor) {
-                                                     return partitionKey.hashCode();
-                                                 }
-                                             }
-                            )
-                            .partitioningStrategy(new PartitioningStrategy<String>() {
-                                @Override
-                                public String getPartitionKey(String key) {
-                                    return key;
-                                }
-                            })
-                            .build()
+                            .hashingStrategy(hashingStrategy)
+                            .partitioningStrategy(partitioningStrategy)
+                    .build()
+            );
+            dag.addEdge(new EdgeImpl.EdgeBuilder("edge",
+                    counter,
+                    combiner)
+                    .processingStrategy(ProcessingStrategy.PARTITIONING)
+                    .hashingStrategy(hashingStrategy)
+                    .partitioningStrategy(partitioningStrategy)
+                    .shuffling(true)
+                    .build()
             );
             long t = System.currentTimeMillis();
             System.out.println("Executing app");
             executeApplication(dag, application).get();
             System.out.println("Time=" + (System.currentTimeMillis() - t));
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             application.finalizeApplication().get();
             hazelcastInstance.shutdown();

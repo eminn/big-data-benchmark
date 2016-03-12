@@ -24,9 +24,11 @@ import com.hazelcast.jet.spi.dag.tap.SourceTap;
 import com.hazelcast.jet.spi.dag.tap.TapType;
 import com.hazelcast.jet.spi.data.DataReader;
 import com.hazelcast.jet.spi.data.tuple.TupleFactory;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,17 +41,21 @@ import java.util.TreeSet;
 public class HdfsSourceTap extends SourceTap {
 
     public static final Comparator<Member> MEMBER_COMPARATOR = (Comparator<Member>) (left, right) -> left.getUuid().compareTo(right.getUuid());
-    private JobConf configuration;
     private String name;
+    private String path;
 
-    public HdfsSourceTap(String name, JobConf configuration) {
-        this.configuration = configuration;
+    public HdfsSourceTap(String name, String path) {
         this.name = name;
-
+        this.path = path;
     }
 
     @Override
     public DataReader[] getReaders(ContainerDescriptor containerDescriptor, Vertex vertex, TupleFactory tupleFactory) {
+
+        JobConf configuration = new JobConf();
+        configuration.setInputFormat(TextInputFormat.class);
+        TextInputFormat.addInputPath(configuration, new Path(path));
+
         int taskCount = vertex.getDescriptor().getTaskCount();
 
         try {
@@ -64,6 +70,7 @@ public class HdfsSourceTap extends SourceTap {
                 InputSplit split = splits[i];
                 RecordReader recordReader = configuration.getInputFormat()
                         .getRecordReader(split, configuration, new HdfsReporter());
+                System.out.println("Using split with index " + i + " " + split);
                 HdfsDataReader reader = new HdfsDataReader(name, recordReader, vertex, containerDescriptor.getConfig().getChunkSize());
                 readers.add(reader);
             }

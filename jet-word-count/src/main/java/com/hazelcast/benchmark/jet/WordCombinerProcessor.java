@@ -28,19 +28,18 @@ import com.hazelcast.jet.spi.processor.ContainerProcessor;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class WordCounterProcessor implements ContainerProcessor<String, Tuple<String, Integer>> {
+public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, Integer>, Tuple<String, Integer>> {
 
 
     private static final AtomicInteger taskCounter = new AtomicInteger(0);
 
-    private Iterator<Object> finalizationIterator;
+    private Iterator<String> finalizationIterator;
 
-    private Map<Object, Integer> cache = new HashMap<>();
+    private Map<String, Integer> cache = new HashMap<>();
 
-    public WordCounterProcessor() {
+    public WordCombinerProcessor() {
 
     }
 
@@ -50,17 +49,16 @@ public class WordCounterProcessor implements ContainerProcessor<String, Tuple<St
     }
 
     @Override
-    public boolean process(ProducerInputStream<String> inputStream,
+    public boolean process(ProducerInputStream<Tuple<String, Integer>> inputStream,
                            ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
-        for (String word : inputStream) {
-            Integer value = this.cache.get(word);
-
+        for (Tuple<String, Integer> word : inputStream) {
+            Integer value = this.cache.get(word.getKey(0));
             if (value == null) {
-                this.cache.put(word, 1);
+                this.cache.put(word.getKey(0), word.getValue(0));
             } else {
-                this.cache.put(word, value + 1);
+                this.cache.put(word.getKey(0), value + word.getValue(0));
             }
         }
 
@@ -83,7 +81,7 @@ public class WordCounterProcessor implements ContainerProcessor<String, Tuple<St
             while (this.finalizationIterator.hasNext()) {
                 String word = (String) this.finalizationIterator.next();
 
-                outputStream.consume(new Tuple2<String, Integer>(word, this.cache.get(word)));
+                outputStream.consume(new Tuple2<>(word, this.cache.get(word)));
 
                 if (idx == chunkSize - 1) {
                     break;
@@ -115,7 +113,7 @@ public class WordCounterProcessor implements ContainerProcessor<String, Tuple<St
     public static class Factory implements ContainerProcessorFactory {
         @Override
         public ContainerProcessor getProcessor(Vertex vertex) {
-            return new WordCounterProcessor();
+            return new WordCombinerProcessor();
         }
     }
 }
