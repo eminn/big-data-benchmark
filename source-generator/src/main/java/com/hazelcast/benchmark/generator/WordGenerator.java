@@ -18,6 +18,7 @@ public class WordGenerator {
                 stream.write(" ");
             }
         }
+        stream.write("\n");
     }
 
     public static void main(String[] args) throws IOException {
@@ -28,8 +29,9 @@ public class WordGenerator {
 
         DataOutputStream hdfsFile = Hdfs.getHdfsFile(args[0]);
 
-        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), Long.parseLong(args[1]), Long.parseLong(args[2]));
-        hdfsFile.flush();
-        hdfsFile.close();
+        OutputStreamWriter stream = new OutputStreamWriter(hdfsFile);
+        WordGenerator.writeToFile(stream, Long.parseLong(args[1]), Long.parseLong(args[2]));
+        stream.flush();
+        stream.close();
     }
 }

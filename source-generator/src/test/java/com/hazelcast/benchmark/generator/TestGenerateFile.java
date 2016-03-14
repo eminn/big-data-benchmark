@@ -22,17 +22,20 @@ public class TestGenerateFile {
     public void generate_10m_File() throws IOException {
         DataOutputStream hdfsFile = Hdfs.getHdfsFile("10m_words.txt");
 
-        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), DISTINCT_WORDS, 10_000_000);
-        hdfsFile.flush();
-        hdfsFile.close();
+        OutputStreamWriter stream = new OutputStreamWriter(hdfsFile);
+        WordGenerator.writeToFile(stream, DISTINCT_WORDS, 10_000_000);
+
+        stream.flush();
+        stream.close();
     }
 
     @Test @Ignore
     public void generate_100m_File() throws IOException {
         DataOutputStream hdfsFile = Hdfs.getHdfsFile("100m_words.txt");
 
-        WordGenerator.writeToFile(new OutputStreamWriter(hdfsFile), DISTINCT_WORDS, 100_000_000);
-        hdfsFile.flush();
-        hdfsFile.close();
+        OutputStreamWriter stream = new OutputStreamWriter(hdfsFile);
+        WordGenerator.writeToFile(stream, DISTINCT_WORDS, 100_000_000);
+        stream.flush();
+        stream.close();
     }
 }
