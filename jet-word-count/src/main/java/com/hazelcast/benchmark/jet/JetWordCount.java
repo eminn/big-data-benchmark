@@ -18,10 +18,6 @@ import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.processor.ProcessorDescriptor;
 import com.hazelcast.jet.spi.strategy.HashingStrategy;
 import com.hazelcast.jet.spi.strategy.ProcessingStrategy;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.TaskAttemptID;
-import org.apache.hadoop.mapred.TextOutputFormat;
 
 import java.util.concurrent.Future;
 
@@ -62,19 +58,9 @@ public class JetWordCount {
         Vertex counter = createVertex("wordCounter", WordCombinerProcessor.Factory.class);
         Vertex combiner = createVertex("wordCombiner", WordCombinerProcessor.Factory.class);
 
-        JobConf conf = new JobConf();
-
-        // TODO
-        int taskNumber = 1;
-        TaskAttemptID taskAttemptId = TaskAttemptID.forName("attempt__0000_r_"
-                + String.format("%" + (6 - Integer.toString(taskNumber + 1).length()) + "s", " ").replace(" ", "0")
-                + Integer.toString(taskNumber + 1)
-                + "_0");
-
-        TextOutputFormat.setOutputPath(conf, new Path(args[1]));
         generator.addSourceTap(new HdfsSourceTap("hdfs", args[0]));
         combiner.addSinkFile("output.txt");
-//        counter.addSinkTap(new HdfsSinkTap("hdfs", conf));
+        combiner.addSinkTap(new HdfsSinkTap("hdfs", args[1]));
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount");
         try {
@@ -82,36 +68,19 @@ public class JetWordCount {
             dag.addVertex(generator);
             dag.addVertex(counter);
             dag.addVertex(combiner);
-            HashingStrategy<Tuple<String,Integer>, String> hashingStrategy =
-                    new HashingStrategy<Tuple<String, Integer>, String>() {
-                        @Override
-                        public int hash(Tuple<String, Integer> object, String partitionKey, ContainerDescriptor containerDescriptor) {
-                            return partitionKey.hashCode();
-                        }
-                    };
-            PartitioningStrategy<Tuple<String, Integer>> partitioningStrategy =
-                    new PartitioningStrategy<Tuple<String, Integer>>() {
-                        @Override
-                        public Object getPartitionKey(Tuple<String,Integer> key) {
-                            return key.getKey(0);
-                        }
-                    };
+
             dag.addEdge(
                     new EdgeImpl.EdgeBuilder(
                             "edge",
                             generator,
                             counter)
                             .processingStrategy(ProcessingStrategy.PARTITIONING)
-                            .hashingStrategy(hashingStrategy)
-                            .partitioningStrategy(partitioningStrategy)
-                    .build()
+                            .build()
             );
             dag.addEdge(new EdgeImpl.EdgeBuilder("edge",
                     counter,
                     combiner)
                     .processingStrategy(ProcessingStrategy.PARTITIONING)
-                    .hashingStrategy(hashingStrategy)
-                    .partitioningStrategy(partitioningStrategy)
                     .shuffling(true)
                     .build()
             );

@@ -32,15 +32,12 @@ import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 
 public class HdfsSourceTap extends SourceTap {
 
-    public static final Comparator<Member> MEMBER_COMPARATOR = (Comparator<Member>) (left, right) -> left.getUuid().compareTo(right.getUuid());
+
     private String name;
     private String path;
 
@@ -61,12 +58,13 @@ public class HdfsSourceTap extends SourceTap {
         try {
             InputSplit[] splits = configuration.getInputFormat().getSplits(configuration, taskCount);
             ClusterService clusterService = containerDescriptor.getNodeEngine().getClusterService();
-            Member[] members = sortMembers(clusterService.getMembers());
-            int memberIndex = Arrays.binarySearch(members, clusterService.getLocalMember(), MEMBER_COMPARATOR);
 
-            List<DataReader> readers = new ArrayList<>(splits.length / members.length + 1);
+            Set<Member> members = clusterService.getMembers();
+            int memberIndex = MemberUtil.indexOfMember(members, clusterService.getLocalMember());
 
-            for (int i = memberIndex; i < splits.length; i += members.length) {
+            List<DataReader> readers = new ArrayList<>(splits.length / members.size() + 1);
+
+            for (int i = memberIndex; i < splits.length; i += members.size()) {
                 InputSplit split = splits[i];
                 RecordReader recordReader = configuration.getInputFormat()
                         .getRecordReader(split, configuration, new HdfsReporter());
@@ -78,12 +76,6 @@ public class HdfsSourceTap extends SourceTap {
         } catch (IOException e) {
             throw JetUtil.reThrow(e);
         }
-    }
-
-    private Member[] sortMembers(Set<Member> members) {
-        TreeSet<Member> sorted = new TreeSet<>(MEMBER_COMPARATOR);
-        sorted.addAll(members);
-        return sorted.toArray(new Member[sorted.size()]);
     }
 
     @Override

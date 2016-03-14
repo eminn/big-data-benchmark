@@ -18,14 +18,18 @@ package com.hazelcast.benchmark.jet;
 import com.hazelcast.core.PartitioningStrategy;
 import com.hazelcast.jet.api.data.io.ProducerInputStream;
 import com.hazelcast.jet.impl.data.io.DefaultObjectIOStream;
+import com.hazelcast.jet.impl.strategy.DefaultHashingStrategy;
 import com.hazelcast.jet.impl.util.JetUtil;
 import com.hazelcast.jet.spi.dag.tap.SinkTapWriteStrategy;
 import com.hazelcast.jet.spi.data.DataWriter;
 import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.strategy.HashingStrategy;
 import com.hazelcast.jet.spi.strategy.ShufflingStrategy;
+import com.hazelcast.partition.strategy.DefaultPartitioningStrategy;
+import org.apache.hadoop.mapred.OutputCommitter;
 import org.apache.hadoop.mapred.RecordWriter;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.TaskAttemptContextImpl;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -33,14 +37,20 @@ import java.util.Iterator;
 public class HdfsDataWriter implements DataWriter {
 
     private final RecordWriter recordWriter;
+    private final TaskAttemptContextImpl taskAttemptContext;
+    private final OutputCommitter outputCommitter;
+    private int chunkSize;
     private final Reporter reporter;
     private final DefaultObjectIOStream<Object> chunkInputStream;
     private int lastConsumedCount;
     private boolean closed;
     private boolean isFlushed;
 
-    public HdfsDataWriter(RecordWriter writer, int chunkSize, Reporter reporter) {
+    public HdfsDataWriter(RecordWriter writer, TaskAttemptContextImpl taskAttemptContext, OutputCommitter outputCommitter, int chunkSize, Reporter reporter) {
         this.recordWriter = writer;
+        this.taskAttemptContext = taskAttemptContext;
+        this.outputCommitter = outputCommitter;
+        this.chunkSize = chunkSize;
         this.reporter = reporter;
         this.chunkInputStream = new DefaultObjectIOStream<>(new Tuple[chunkSize]);
     }
@@ -99,6 +109,10 @@ public class HdfsDataWriter implements DataWriter {
         int size = chunkInputStream.size();
         chunkInputStream.reset();
         isFlushed = true;
+
+        if (size < chunkSize) {
+            close();
+        }
         return size;
     }
 
@@ -119,6 +133,10 @@ public class HdfsDataWriter implements DataWriter {
         closed = true;
         try {
             recordWriter.close(reporter);
+
+            if (outputCommitter.needsTaskCommit(taskAttemptContext)) {
+                outputCommitter.commitTask(taskAttemptContext);
+            }
 
         } catch (IOException e) {
             throw JetUtil.reThrow(e);
