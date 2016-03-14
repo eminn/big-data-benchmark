@@ -19,12 +19,13 @@
 package com.hazelcast.benchmark.flink;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
 
-import java.util.Arrays;
 import java.util.regex.Pattern;
 
 /**
@@ -58,11 +59,11 @@ public class FlinkWordCount {
         }
 
         // set up the execution environment
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
         // get input data
-        DataStream<String> text = getTextDataStream(env);
+        DataSet<String> text = getTextDataStream(env);
 
-        DataStream<Tuple2<String, Integer>> counts =
+        DataSet<Tuple2<String, Integer>> counts =
                 // normalize and split each line
                 text.flatMap(new FlatMapFunction<String, Tuple2<String, Integer>>() {
                             @Override
@@ -74,7 +75,7 @@ public class FlinkWordCount {
                             }
                         })
                         // group by the tuple field "0" and sum up tuple field "1"
-                        .keyBy(0)
+                        .groupBy(0)
                         .sum(1);
 
         // emit result
@@ -111,7 +112,7 @@ public class FlinkWordCount {
         return true;
     }
 
-    private static DataStream<String> getTextDataStream(StreamExecutionEnvironment env) {
+    private static DataSet<String> getTextDataStream(ExecutionEnvironment env) {
         return env.readTextFile(textPath);
     }
 }
