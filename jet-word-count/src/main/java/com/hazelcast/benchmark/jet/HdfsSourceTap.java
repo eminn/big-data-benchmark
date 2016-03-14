@@ -53,17 +53,16 @@ public class HdfsSourceTap extends SourceTap {
         configuration.setInputFormat(TextInputFormat.class);
         TextInputFormat.addInputPath(configuration, new Path(path));
 
-        int taskCount = vertex.getDescriptor().getTaskCount();
+        ClusterService clusterService = containerDescriptor.getNodeEngine().getClusterService();
+        Set<Member> members = clusterService.getMembers();
+
+        int taskCount = members.size() * vertex.getDescriptor().getTaskCount();
 
         try {
             InputSplit[] splits = configuration.getInputFormat().getSplits(configuration, taskCount);
-            ClusterService clusterService = containerDescriptor.getNodeEngine().getClusterService();
 
-            Set<Member> members = clusterService.getMembers();
             int memberIndex = MemberUtil.indexOfMember(members, clusterService.getLocalMember());
-
             List<DataReader> readers = new ArrayList<>(splits.length / members.size() + 1);
-
             for (int i = memberIndex; i < splits.length; i += members.size()) {
                 InputSplit split = splits[i];
                 RecordReader recordReader = configuration.getInputFormat()
