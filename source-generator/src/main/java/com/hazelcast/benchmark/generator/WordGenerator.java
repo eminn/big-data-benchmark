@@ -29,9 +29,9 @@ public class WordGenerator {
 
         DataOutputStream hdfsFile = Hdfs.getHdfsFile(args[0]);
 
-        OutputStreamWriter stream = new OutputStreamWriter(hdfsFile);
-        WordGenerator.writeToFile(stream, Long.parseLong(args[1]), Long.parseLong(args[2]));
-        stream.flush();
-        stream.close();
+        try (OutputStreamWriter stream = new OutputStreamWriter(hdfsFile)) {
+            WordGenerator.writeToFile(stream, Long.parseLong(args[1]), Long.parseLong(args[2]));
+            stream.flush();
+        }
     }
 }
