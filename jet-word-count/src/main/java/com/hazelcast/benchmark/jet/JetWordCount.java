@@ -55,7 +55,7 @@ public class JetWordCount {
         Vertex combiner = createVertex("wordCombiner", WordCombinerProcessor.Factory.class);
 
         generator.addSourceTap(new HdfsSourceTap("hdfs", args[0]));
-        combiner.addSinkTap(new HdfsSinkTap("hdfs", args[1]));
+        combiner.addSinkTap(new HdfsSinkTap("hdfs", args[1] + "_" + System.currentTimeMillis()));
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount");
         try {

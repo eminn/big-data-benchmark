@@ -41,13 +41,11 @@ import org.apache.hadoop.mapreduce.TaskType;
 
 import java.io.IOException;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class HdfsSinkTap extends SinkTap {
 
     private final String name;
     private final String path;
-    private AtomicInteger taskId = new AtomicInteger(0);
 
     public HdfsSinkTap(String name, String path) {
         this.name = name;
@@ -57,47 +55,48 @@ public class HdfsSinkTap extends SinkTap {
     @Override
     public DataWriter[] getWriters(NodeEngine nodeEngine, ContainerDescriptor containerDescriptor) {
         try {
-            int taskNumber = getTaskNumber(nodeEngine, containerDescriptor);
+            int numTasks = containerDescriptor.getVertex().getDescriptor().getTaskCount();
+            DataWriter[] writers = new DataWriter[numTasks];
 
-            JobConf conf = new JobConf();
-            JobID jobId = new JobID();
+            for (int i = 0; i < numTasks; i++) {
+                int taskNumber = getTaskNumber(nodeEngine, i, numTasks);
+                System.out.println("Creating writer with task number " + taskNumber);
+                JobConf conf = new JobConf();
+                JobID jobId = new JobID();
 
-            conf.setOutputFormat(TextOutputFormat.class);
-            conf.setOutputCommitter(FileOutputCommitter.class);
-            TextOutputFormat.setOutputPath(conf, new Path(path));
+                conf.setOutputFormat(TextOutputFormat.class);
+                conf.setOutputCommitter(FileOutputCommitter.class);
+                TextOutputFormat.setOutputPath(conf, new Path(path));
 
-            if (taskNumber == 0) {
-                JobContextImpl jobContext = new JobContextImpl(conf, jobId);
+                if (taskNumber == 0) {
+                    JobContextImpl jobContext = new JobContextImpl(conf, jobId);
 ///                conf.getOutputCommitter().setupJob(jobContext);
-                registerCommiter(containerDescriptor, jobContext, conf);
+                    registerCommiter(containerDescriptor, jobContext, conf);
+                }
+
+                HdfsReporter reporter = new HdfsReporter();
+                TaskAttemptID taskAttemptID = new TaskAttemptID("jet", jobId.getId(), TaskType.JOB_SETUP, taskNumber, 0);
+                conf.set("mapred.task.id", taskAttemptID.toString());
+                conf.setInt("mapred.task.partition", taskNumber);
+
+                TaskAttemptContextImpl taskAttemptContext = new TaskAttemptContextImpl(conf, taskAttemptID);
+                RecordWriter recordWriter = conf.getOutputFormat().getRecordWriter(null, conf, Integer.toString(taskNumber),
+                        reporter);
+                writers[i] = new HdfsDataWriter(recordWriter, taskAttemptContext, conf.getOutputCommitter(),
+                        containerDescriptor.getConfig().getChunkSize(), reporter);
             }
-
-            HdfsReporter reporter = new HdfsReporter();
-            TaskAttemptID taskAttemptID = new TaskAttemptID("jet", jobId.getId(), TaskType.JOB_SETUP, taskNumber, 0);
-            conf.set("mapred.task.id", taskAttemptID.toString());
-            conf.setInt("mapred.task.partition", taskNumber);
-
-            TaskAttemptContextImpl taskAttemptContext = new TaskAttemptContextImpl(conf, taskAttemptID);
-            RecordWriter recordWriter = conf.getOutputFormat().getRecordWriter(null, conf, Integer.toString(taskNumber),
-                    reporter);
-
-            DataWriter[] writers = new DataWriter[]{
-                    new HdfsDataWriter(recordWriter, taskAttemptContext, conf.getOutputCommitter(), containerDescriptor.getConfig().getChunkSize(), reporter)
-            };
-
             return writers;
         } catch (IOException e) {
             throw JetUtil.reThrow(e);
         }
     }
 
-    private int getTaskNumber(NodeEngine nodeEngine, ContainerDescriptor containerDescriptor) {
+    private int getTaskNumber(NodeEngine nodeEngine, int index, int numTasks) {
         ClusterService clusterService = nodeEngine.getClusterService();
         Set<Member> members = clusterService.getMembers();
         int memberIndex = MemberUtil.indexOfMember(members, clusterService.getLocalMember());
-        int numTasks = containerDescriptor.getVertex().getDescriptor().getTaskCount();
         int taskOffset = memberIndex * numTasks;
-        return taskOffset + taskId.getAndIncrement();
+        return taskOffset + index;
     }
 
     private void registerCommiter(ContainerDescriptor containerDescriptor, final JobContext jobContext, final JobConf conf) {
@@ -132,5 +131,10 @@ public class HdfsSinkTap extends SinkTap {
     @Override
     public TapType getType() {
         return TapType.OTHER;
+    }
+
+    @Override
+    public boolean isPartitioned() {
+        return false;
     }
 }
