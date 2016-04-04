@@ -70,7 +70,7 @@ public class HdfsSinkTap extends SinkTap {
 
                 if (taskNumber == 0) {
                     JobContextImpl jobContext = new JobContextImpl(conf, jobId);
-///                conf.getOutputCommitter().setupJob(jobContext);
+                    conf.getOutputCommitter().setupJob(jobContext);
                     registerCommiter(containerDescriptor, jobContext, conf);
                 }
 
