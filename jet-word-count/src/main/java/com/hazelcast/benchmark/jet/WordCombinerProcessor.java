@@ -39,6 +39,9 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
 
     private Map<String, Integer> cache = new HashMap<>();
 
+    private long totalProcessTime;
+    private long totalFinalizeTime;
+
     public WordCombinerProcessor() {
 
     }
@@ -46,6 +49,8 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
     @Override
     public void beforeProcessing(ProcessorContext processorContext) {
         taskCounter.set(processorContext.getVertex().getDescriptor().getTaskCount());
+        totalProcessTime = 0;
+        totalFinalizeTime = 0;
     }
 
     @Override
@@ -53,6 +58,8 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
                            ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
+
+        long start = System.nanoTime();
         for (Tuple<String, Integer> word : inputStream) {
             Integer value = this.cache.get(word.getKey(0));
             if (value == null) {
@@ -61,7 +68,7 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
                 this.cache.put(word.getKey(0), value + word.getValue(0));
             }
         }
-
+        totalProcessTime += System.nanoTime() - start;
         return true;
     }
 
@@ -69,7 +76,7 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
     public boolean finalizeProcessor(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                                      ProcessorContext processorContext) throws Exception {
         boolean finalized = false;
-
+        long start = System.nanoTime();
         try {
             if (finalizationIterator == null) {
                 this.finalizationIterator = this.cache.keySet().iterator();
@@ -92,7 +99,10 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
 
             finalized = !this.finalizationIterator.hasNext();
         } finally {
+            totalFinalizeTime += System.nanoTime() - start;
             if (finalized) {
+                System.out.println(processorContext.getVertex().getName() + ".TotalProcessTime=" + totalProcessTime /1000000);
+                System.out.println(processorContext.getVertex().getName() + ".TotalFinalizeTime=" + totalFinalizeTime /1000000);
                 this.finalizationIterator = null;
                 clearCaches();
             }

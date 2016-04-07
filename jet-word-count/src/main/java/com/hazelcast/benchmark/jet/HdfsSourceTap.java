@@ -32,6 +32,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -67,8 +68,8 @@ public class HdfsSourceTap extends SourceTap {
                 InputSplit split = splits[i];
                 RecordReader recordReader = configuration.getInputFormat()
                         .getRecordReader(split, configuration, new HdfsReporter());
-                System.out.println("Using split with index " + i + " " + split);
-                HdfsDataReader reader = new HdfsDataReader(name, recordReader, vertex, containerDescriptor.getConfig().getChunkSize());
+                System.out.println("Using split with index " + i + " " + split + " in " + Arrays.toString(split.getLocations()));
+                HdfsDataReader reader = new HdfsDataReader(name, recordReader, vertex, containerDescriptor.getConfig().getChunkSize(), i);
                 readers.add(reader);
             }
             return readers.toArray(new DataReader[readers.size()]);

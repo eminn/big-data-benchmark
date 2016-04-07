@@ -35,16 +35,20 @@ public class HdfsDataReader implements DataReader {
     private final Object[] buffer;
     private final Vertex vertex;
     private final int chunkSize;
+    private final int id;
     private final List<ProducerCompletionHandler> completionHandlers;
     private boolean closed;
     private int lastProducedCount;
 
+    private long totalTime = 0;
 
-    public HdfsDataReader(String name, RecordReader recordReader, Vertex vertex, int chunkSize) {
+
+    public HdfsDataReader(String name, RecordReader recordReader, Vertex vertex, int chunkSize, int id) {
         this.name = name;
         this.recordReader = recordReader;
         this.vertex = vertex;
         this.chunkSize = chunkSize;
+        this.id = id;
         this.buffer = new Object[chunkSize];
 
         completionHandlers = new CopyOnWriteArrayList<>();
@@ -74,6 +78,7 @@ public class HdfsDataReader implements DataReader {
     public Object[] produce() {
         int idx = 0;
 
+        long start = System.nanoTime();
         boolean read;
         try {
             do {
@@ -89,15 +94,18 @@ public class HdfsDataReader implements DataReader {
 
             if (idx == 0) {
                 lastProducedCount = idx;
+                totalTime += System.nanoTime() - start;
                 handleProducerCompleted();
                 return null;
             } else if (idx == chunkSize) {
                 lastProducedCount = idx;
+                totalTime += System.nanoTime() - start;
                 return buffer;
             } else {
                 Object[] truncated = new Object[idx];
                 System.arraycopy(buffer, 0, truncated, 0, idx);
                 lastProducedCount = idx;
+                totalTime += System.nanoTime() - start;
                 handleProducerCompleted();
                 return truncated;
             }
@@ -145,6 +153,7 @@ public class HdfsDataReader implements DataReader {
     public void close() {
         this.closed = true;
         try {
+            System.out.println("HdfsDataReader."+ id + "=" + totalTime/1000000);
             this.recordReader.close();
         } catch (IOException e) {
             JetUtil.reThrow(e);

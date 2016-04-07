@@ -36,6 +36,9 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
     private Iterator<Tuple<LongWritable, Text>> iterator;
     private StringTokenizer stringTokenizer;
 
+    private long totalProcessTime;
+    private long totalFinalizeTime;
+
     private boolean processStringTokenizer(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                                            ProcessorContext processorContext) throws Exception {
         while (this.stringTokenizer.hasMoreElements()) {
@@ -68,8 +71,10 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
                            ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
+        long start = System.nanoTime();
         if (this.stringTokenizer != null) {
             processStringTokenizer(outputStream, processorContext);
+            totalProcessTime += System.nanoTime() - start;
             return false;
         }
 
@@ -83,23 +88,31 @@ public class WordGeneratorProcessor implements ContainerProcessor<Tuple<LongWrit
             this.stringTokenizer = new StringTokenizer(next.getValue(0).toString());
 
             if (!processStringTokenizer(outputStream, processorContext)) {
+                totalProcessTime += System.nanoTime() - start;
                 return false;
             }
         }
 
         this.iterator = null;
+        totalProcessTime += System.nanoTime() - start;
         return true;
     }
 
     @Override
     public boolean finalizeProcessor(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
                                      ProcessorContext processorContext) throws Exception {
+        long start = System.nanoTime();
         if (this.stringTokenizer != null) {
             processStringTokenizer(outputStream, processorContext);
+            totalFinalizeTime += System.nanoTime() - start;
             return false;
         }
 
         this.stringTokenizer = null;
+        totalFinalizeTime += System.nanoTime() - start;
+
+        System.out.println(processorContext.getVertex().getName() + ".TotalProcessTime=" + totalProcessTime /1000000);
+        System.out.println(processorContext.getVertex().getName() + ".TotalFinalizeTime=" + totalFinalizeTime /1000000);
         return true;
     }
 

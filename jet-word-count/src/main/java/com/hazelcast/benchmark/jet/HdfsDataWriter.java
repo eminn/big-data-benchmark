@@ -43,6 +43,8 @@ public class HdfsDataWriter implements DataWriter {
     private boolean closed;
     private boolean isFlushed;
 
+    private long totalFlush = 0;
+
     public HdfsDataWriter(RecordWriter writer, TaskAttemptContextImpl taskAttemptContext, OutputCommitter outputCommitter, int chunkSize, Reporter reporter) {
         this.recordWriter = writer;
         this.taskAttemptContext = taskAttemptContext;
@@ -94,6 +96,7 @@ public class HdfsDataWriter implements DataWriter {
 
     @Override
     public int flush() {
+        long start = System.nanoTime();
         for (Iterator<Object> iterator = chunkInputStream.iterator(); iterator.hasNext(); ) {
             Tuple tuple = (Tuple) iterator.next();
             try {
@@ -102,6 +105,7 @@ public class HdfsDataWriter implements DataWriter {
                 throw JetUtil.reThrow(e);
             }
         }
+        totalFlush += System.nanoTime() - start;
         int size = chunkInputStream.size();
         chunkInputStream.reset();
         isFlushed = true;
@@ -123,6 +127,7 @@ public class HdfsDataWriter implements DataWriter {
 
     @Override
     public void close() {
+        System.out.println("TotalFlush=" + totalFlush/1000000);
         closed = true;
         try {
             recordWriter.close(reporter);

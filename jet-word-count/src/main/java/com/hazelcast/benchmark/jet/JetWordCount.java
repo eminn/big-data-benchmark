@@ -43,14 +43,23 @@ public class JetWordCount {
         }
 
         JetClientConfig clientConfig = new JetClientConfig();
+        clientConfig.getNetworkConfig().addAddress("server1");
+        clientConfig.getNetworkConfig().addAddress("server2");
+        clientConfig.getNetworkConfig().addAddress("server3");
+        clientConfig.getNetworkConfig().addAddress("server4");
+        clientConfig.getNetworkConfig().addAddress("server5");
+        clientConfig.getNetworkConfig().addAddress("server6");
+        clientConfig.getNetworkConfig().addAddress("server7");
+        clientConfig.getNetworkConfig().addAddress("server8");
+        clientConfig.getNetworkConfig().addAddress("server9");
         JetApplicationConfig appConfig = new JetApplicationConfig("wordCount");
         appConfig.setJetSecondsToAwait(100000);
         appConfig.setChunkSize(4000);
         appConfig.setMaxProcessingThreads(
-                Runtime.getRuntime().availableProcessors());
+                Runtime.getRuntime().availableProcessors() / 2);
         clientConfig.addJetApplicationConfig(appConfig);
 
-        HazelcastInstance hazelcastInstance = HazelcastClient.newHazelcastClient(new ClientConfig());
+        HazelcastInstance hazelcastInstance = HazelcastClient.newHazelcastClient(clientConfig);
 
 
         System.out.println("Press any key to start");
