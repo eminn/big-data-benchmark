@@ -47,7 +47,7 @@ public class JetWordCount {
         appConfig.setJetSecondsToAwait(100000);
         appConfig.setChunkSize(4000);
         appConfig.setMaxProcessingThreads(
-                Runtime.getRuntime().availableProcessors());
+                Runtime.getRuntime().availableProcessors() / 2);
         clientConfig.addJetApplicationConfig(appConfig);
 
         HazelcastInstance hazelcastInstance = HazelcastClient.newHazelcastClient(new ClientConfig());

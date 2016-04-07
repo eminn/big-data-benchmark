@@ -25,19 +25,17 @@ import com.hazelcast.jet.spi.dag.Vertex;
 import com.hazelcast.jet.spi.data.tuple.Tuple;
 import com.hazelcast.jet.spi.processor.ContainerProcessor;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, Integer>, Tuple<String, Integer>> {
+public class WordCombinerProcessor implements ContainerProcessor<Tuple<Integer, Integer>, Tuple<Integer, Integer>> {
 
 
     private static final AtomicInteger taskCounter = new AtomicInteger(0);
 
-    private Iterator<String> finalizationIterator;
+    private int lastIndex;
 
-    private Map<String, Integer> cache = new HashMap<>();
+    private int[] cache = new int[1024 * 1024];
 
     public WordCombinerProcessor() {
 
@@ -49,51 +47,45 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
     }
 
     @Override
-    public boolean process(ProducerInputStream<Tuple<String, Integer>> inputStream,
-                           ConsumerOutputStream<Tuple<String, Integer>> outputStream,
+    public boolean process(ProducerInputStream<Tuple<Integer, Integer>> inputStream,
+                           ConsumerOutputStream<Tuple<Integer, Integer>> outputStream,
                            String sourceName,
                            ProcessorContext processorContext) throws Exception {
-        for (Tuple<String, Integer> word : inputStream) {
-            Integer value = this.cache.get(word.getKey(0));
-            if (value == null) {
-                this.cache.put(word.getKey(0), word.getValue(0));
-            } else {
-                this.cache.put(word.getKey(0), value + word.getValue(0));
-            }
+        for (Tuple<Integer, Integer> word : inputStream) {
+            this.cache[word.getKey(0)] += word.getValue(0);
         }
-
         return true;
     }
 
     @Override
-    public boolean finalizeProcessor(ConsumerOutputStream<Tuple<String, Integer>> outputStream,
+    public boolean finalizeProcessor(ConsumerOutputStream<Tuple<Integer, Integer>> outputStream,
                                      ProcessorContext processorContext) throws Exception {
         boolean finalized = false;
 
         try {
-            if (finalizationIterator == null) {
-                this.finalizationIterator = this.cache.keySet().iterator();
-            }
-
             int idx = 0;
             int chunkSize = processorContext.getConfig().getChunkSize();
 
-            while (this.finalizationIterator.hasNext()) {
-                String word = (String) this.finalizationIterator.next();
+            while (this.lastIndex < this.cache.length) {
+                int count = this.cache[this.lastIndex];
 
-                outputStream.consume(new Tuple2<>(word, this.cache.get(word)));
-
-                if (idx == chunkSize - 1) {
-                    break;
+                if (count == 0) {
+                    this.lastIndex++;
+                    continue;
                 }
 
-                idx++;
+                outputStream.consume(new Tuple2<>(this.lastIndex++, count));
+
+                if (idx++ == chunkSize - 1) {
+                    break;
+
+                }
             }
 
-            finalized = !this.finalizationIterator.hasNext();
+            finalized = this.lastIndex == this.cache.length;
         } finally {
             if (finalized) {
-                this.finalizationIterator = null;
+                this.lastIndex = 0;
                 clearCaches();
             }
         }
@@ -107,7 +99,7 @@ public class WordCombinerProcessor implements ContainerProcessor<Tuple<String, I
     }
 
     private void clearCaches() {
-        this.cache.clear();
+        Arrays.fill(this.cache, 0);
     }
 
     public static class Factory implements ContainerProcessorFactory {
