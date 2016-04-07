@@ -61,16 +61,19 @@ public class HdfsSourceTap extends SourceTap {
 
         try {
             InputSplit[] splits = configuration.getInputFormat().getSplits(configuration, taskCount);
-
-            int memberIndex = MemberUtil.indexOfMember(members, clusterService.getLocalMember());
-            List<DataReader> readers = new ArrayList<>(splits.length / members.size() + 1);
-            for (int i = memberIndex; i < splits.length; i += members.size()) {
+            List<DataReader> readers = new ArrayList<>();
+            for (int i = 0; i < splits.length; i++) {
                 InputSplit split = splits[i];
-                RecordReader recordReader = configuration.getInputFormat()
-                        .getRecordReader(split, configuration, new HdfsReporter());
-                System.out.println("Using split with index " + i + " " + split + " in " + Arrays.toString(split.getLocations()));
-                HdfsDataReader reader = new HdfsDataReader(name, recordReader, vertex, containerDescriptor.getConfig().getChunkSize(), i);
-                readers.add(reader);
+                for (String location : split.getLocations()) {
+                    String host = containerDescriptor.getNodeEngine().getThisAddress().getHost();
+                    if (host.toLowerCase().equals(location.toLowerCase())) {
+                        RecordReader recordReader = configuration.getInputFormat()
+                                .getRecordReader(split, configuration, new HdfsReporter());
+                        System.out.println("Using split with index " + i + " " + split + " locations " + Arrays.toString(split.getLocations()));
+                        HdfsDataReader reader = new HdfsDataReader(name, recordReader, vertex, containerDescriptor.getConfig().getChunkSize(), i);
+                        readers.add(reader);
+                    }
+                }
             }
             return readers.toArray(new DataReader[readers.size()]);
         } catch (IOException e) {
