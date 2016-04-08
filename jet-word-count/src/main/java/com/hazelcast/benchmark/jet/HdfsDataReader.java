@@ -35,7 +35,6 @@ public class HdfsDataReader implements DataReader {
     private final Object[] buffer;
     private final Vertex vertex;
     private final int chunkSize;
-    private final int id;
     private final List<ProducerCompletionHandler> completionHandlers;
     private boolean closed;
     private int lastProducedCount;
@@ -43,12 +42,11 @@ public class HdfsDataReader implements DataReader {
     private long totalTime = 0;
 
 
-    public HdfsDataReader(String name, RecordReader recordReader, Vertex vertex, int chunkSize, int id) {
+    public HdfsDataReader(String name, RecordReader recordReader, Vertex vertex, int chunkSize) {
         this.name = name;
         this.recordReader = recordReader;
         this.vertex = vertex;
         this.chunkSize = chunkSize;
-        this.id = id;
         this.buffer = new Object[chunkSize];
 
         completionHandlers = new CopyOnWriteArrayList<>();
@@ -153,7 +151,7 @@ public class HdfsDataReader implements DataReader {
     public void close() {
         this.closed = true;
         try {
-            System.out.println("HdfsDataReader."+ id + "=" + totalTime/1000000);
+            System.out.println("HdfsDataReader=" + totalTime/1000000);
             this.recordReader.close();
         } catch (IOException e) {
             JetUtil.reThrow(e);

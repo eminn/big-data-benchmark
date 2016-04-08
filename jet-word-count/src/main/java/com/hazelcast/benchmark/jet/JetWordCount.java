@@ -56,7 +56,7 @@ public class JetWordCount {
         appConfig.setJetSecondsToAwait(100000);
         appConfig.setChunkSize(4000);
         appConfig.setMaxProcessingThreads(
-                Runtime.getRuntime().availableProcessors() / 2);
+                Runtime.getRuntime().availableProcessors());
         clientConfig.addJetApplicationConfig(appConfig);
 
         HazelcastInstance hazelcastInstance = HazelcastClient.newHazelcastClient(clientConfig);
@@ -65,13 +65,14 @@ public class JetWordCount {
         System.out.println("Press any key to start");
         System.in.read();
 
-        int taskCount = Runtime.getRuntime().availableProcessors() / 2;
+        int taskCount = Runtime.getRuntime().availableProcessors();
         Vertex generator = createVertex("wordGenerator", WordGeneratorProcessor.Factory.class, taskCount);
         Vertex counter = createVertex("wordCounter", WordCombinerProcessor.Factory.class, taskCount);
         Vertex combiner = createVertex("wordCombiner", WordCombinerProcessor.Factory.class, taskCount);
 
         generator.addSourceTap(new HdfsSourceTap("hdfs", args[0]));
-        combiner.addSinkTap(new HdfsSinkTap("hdfs", args[1] + "_" + System.currentTimeMillis()));
+        String outputPath = args[1] + "_" + System.currentTimeMillis();
+        combiner.addSinkTap(new HdfsSinkTap("hdfs", outputPath));
 
         Application application = JetEngine.getJetApplication(hazelcastInstance, "wordCount", appConfig);
         System.out.println("Building application");
@@ -100,6 +101,7 @@ public class JetWordCount {
             System.out.println("Executing app");
             executeApplication(dag, application).get();
             System.out.println("Time=" + (System.currentTimeMillis() - t));
+            System.out.println("OutputPath=" + outputPath);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
