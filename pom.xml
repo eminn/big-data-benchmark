@@ -25,11 +25,11 @@
         <timestamp>${maven.build.timestamp}</timestamp>
 
         <junit.version>4.12</junit.version>
-        <hazelcast.version>3.7-SNAPSHOT</hazelcast.version>
+        <hazelcast.version>3.8-SNAPSHOT</hazelcast.version>
         <hadoop.version>2.7.2</hadoop.version>
-        <jet.version>0.1-SNAPSHOT</jet.version>
-        <flink.version>0.10.2</flink.version>
-        <spark.version>1.6.0</spark.version>
+        <jet.version>0.3-SNAPSHOT</jet.version>
+        <flink.version>1.1.3</flink.version>
+        <spark.version>2.0.2</spark.version>
     </properties>
 
     <repositories>
@@ -69,7 +69,22 @@
         <dependencies>
             <dependency>
                 <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <version>${hazelcast.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast-client</artifactId>
+                <version>${hazelcast.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hazelcast.jet</groupId>
                 <artifactId>hazelcast-jet-core</artifactId>
+                <version>${jet.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hazelcast.jet</groupId>
+                <artifactId>hazelcast-jet-hadoop</artifactId>
                 <version>${jet.version}</version>
             </dependency>
             <dependency>
@@ -99,12 +114,12 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-streaming-java</artifactId>
+                <artifactId>flink-streaming-java_2.11</artifactId>
                 <version>${flink.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-clients</artifactId>
+                <artifactId>flink-clients_2.11</artifactId>
                 <version>${flink.version}</version>
             </dependency>
             <dependency>
